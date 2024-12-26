@@ -25,30 +25,13 @@ class TUI:
         self.middle_right = urwid.LineBox(self.middle_right_text)
         self.middle = urwid.Filler(urwid.Columns([self.middle_left, self.middle_right]), valign="top")
 
-#         self.console_line1 = urwid.Text("", wrap='clip')
-#         self.console_line2 = urwid.Text("", wrap='clip')
-#         self.console_line3 = urwid.Text("", wrap='clip')
-#         self.console_line4 = urwid.Text("", wrap='clip')
-#         self.console_line5 = urwid.Text("", wrap='clip')
-#         self.console_line6 = urwid.Text("", wrap='clip')
-#         self.console_line7 = urwid.Text("", wrap='clip')
-#         self.bottom = urwid.LineBox(urwid.ListBox(urwid.SimpleListWalker([
-#             self.console_line1,
-#             self.console_line2,
-#             self.console_line3,
-#             self.console_line4,
-#             self.console_line5,
-#             self.console_line6,
-#             self.console_line7
-#             ])))
-
-        self.console_text = urwid.Text("", wrap='clip')
-        self.bottom = urwid.LineBox(urwid.ListBox(urwid.SimpleListWalker([self.console_text])))
+        self.bottom_text = urwid.Text("", wrap='clip')
+        self.bottom = urwid.LineBox(urwid.ListBox(urwid.SimpleListWalker([self.bottom_text])))
 
         self.frame = urwid.Pile([
             (3, self.top),              # Fixed height for the top section
             ('weight', 1, self.middle), # Expand self.middle for any remaining screen height
-            (9, self.bottom),      # Fixed height for the middle section
+            (9, self.bottom),           # Fixed height for the bottom section
             ])
 
         # IB
@@ -66,7 +49,7 @@ class TUI:
         )
 
         # Schedule the first refresh
-        self.loop.set_alarm_in(1, self.refresh_display)
+        self.loop.set_alarm_in(0, self.refresh_display)
         self.loop.run()
 
     def handle_input(self, key):
@@ -77,7 +60,7 @@ class TUI:
 
     def refresh_display(self, loop, user_data=None):
         self.console_messages = self.logger_instance.get_console_messages()
-        self.console_text.set_text("\n".join(self.console_messages))
+        self.bottom_text.set_text("\n".join(self.console_messages))
 
         try:
             ib_time_obj = self.ib.reqCurrentTime()
