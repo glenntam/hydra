@@ -76,9 +76,9 @@ class Logger:
             # Trim the log file to the last 300 lines
             with open("./log/hydra.log", "r", encoding="utf-8") as f:
                 lines = f.readlines()
-            if len(lines) > 300:
+            if len(lines) > 500:
                 with open("./log/hydra.log", "w", encoding="utf-8") as f:
-                    f.writelines(lines[-300:])
+                    f.writelines(lines[-500:])
         except Exception as e:
             self.print_and_exit(f"Failed to write to hydra.log: {e}")
 
@@ -168,6 +168,9 @@ class Logger:
     def warning_only_filter(self, record):
         """Helper ilter to allow ONLY warning level logs."""
         return record.levelno == logging.WARNING
+
+    def OnIBErrorEvent(self, reqId: int, errorCode: int, errorString: str, Contract):
+        self.logger.error(f"(TWS) reqId({reqId}) errorCode({errorCode}) {errorString}. Contract:{Contract}")
 
     def print_and_exit(self, message):
         """Prints an error message to stderr and exits the program."""
