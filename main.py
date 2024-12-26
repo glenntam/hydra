@@ -25,22 +25,26 @@ class TUI:
         self.middle_right = urwid.LineBox(self.middle_right_text)
         self.middle = urwid.Filler(urwid.Columns([self.middle_left, self.middle_right]), valign="top")
 
-        self.console_line1 = urwid.Text("", wrap='clip')
-        self.console_line2 = urwid.Text("", wrap='clip')
-        self.console_line3 = urwid.Text("", wrap='clip')
-        self.console_line4 = urwid.Text("", wrap='clip')
-        self.console_line5 = urwid.Text("", wrap='clip')
-        self.console_line6 = urwid.Text("", wrap='clip')
-        self.console_line7 = urwid.Text("", wrap='clip')
-        self.bottom = urwid.LineBox(urwid.ListBox(urwid.SimpleListWalker([
-            self.console_line1,
-            self.console_line2,
-            self.console_line3,
-            self.console_line4,
-            self.console_line5,
-            self.console_line6,
-            self.console_line7
-            ])))
+#         self.console_line1 = urwid.Text("", wrap='clip')
+#         self.console_line2 = urwid.Text("", wrap='clip')
+#         self.console_line3 = urwid.Text("", wrap='clip')
+#         self.console_line4 = urwid.Text("", wrap='clip')
+#         self.console_line5 = urwid.Text("", wrap='clip')
+#         self.console_line6 = urwid.Text("", wrap='clip')
+#         self.console_line7 = urwid.Text("", wrap='clip')
+#         self.bottom = urwid.LineBox(urwid.ListBox(urwid.SimpleListWalker([
+#             self.console_line1,
+#             self.console_line2,
+#             self.console_line3,
+#             self.console_line4,
+#             self.console_line5,
+#             self.console_line6,
+#             self.console_line7
+#             ])))
+
+        self.console_text = urwid.Text("", wrap='clip')
+        self.bottom = urwid.LineBox(urwid.ListBox(urwid.SimpleListWalker([self.console_text])))
+
         self.frame = urwid.Pile([
             (3, self.top),              # Fixed height for the top section
             ('weight', 1, self.middle), # Expand self.middle for any remaining screen height
@@ -73,17 +77,11 @@ class TUI:
 
     def refresh_display(self, loop, user_data=None):
         self.console_messages = self.logger_instance.get_console_messages()
-        self.console_line1.set_text(self.console_messages[0])
-        self.console_line2.set_text(self.console_messages[1])
-        self.console_line3.set_text(self.console_messages[2])
-        self.console_line4.set_text(self.console_messages[3])
-        self.console_line5.set_text(self.console_messages[4])
-        self.console_line6.set_text(self.console_messages[5])
-        self.console_line7.set_text(self.console_messages[6])
+        self.console_text.set_text("\n".join(self.console_messages))
+
         try:
             ib_time_obj = self.ib.reqCurrentTime()
             ib_time = str(ib_time_obj.now(ZoneInfo("America/New_York"))) + "  (New York)"
-            self.loop.draw_screen()
             self.top_text.set_text(ib_time)
             self.log.debug(f"Time updated: {ib_time}")
         except Exception as e:

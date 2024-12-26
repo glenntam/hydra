@@ -104,7 +104,7 @@ class Logger:
                 credentials=(email_user, email_password),
                 secure=()
             )
-            email_handler.setLevel(logging.WARNING)
+            email_handler.setLevel(logging.CRITICAL)
             email_handler.setFormatter(self.formatter)
             return email_handler
         except Exception as e:
