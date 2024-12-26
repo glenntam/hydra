@@ -53,10 +53,11 @@ class TUI:
         self.loop.run()
 
     def handle_input(self, key):
-        if key.lower() == "q":
-            self.log.debug("Disconnecting...")
-            self.ib.disconnect()
-            raise urwid.ExitMainLoop()
+        if isinstance(key, str):
+            if key.lower() == "q":
+                self.log.debug("Disconnecting...")
+                self.ib.disconnect()
+                raise urwid.ExitMainLoop()
 
     def refresh_display(self, loop, user_data=None):
         self.console_messages = self.logger_instance.get_console_messages()
