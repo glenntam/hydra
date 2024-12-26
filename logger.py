@@ -9,19 +9,19 @@ from zoneinfo import ZoneInfo
 class Logger:
     """Custom HYDRA logger with: system, email, trade, and streaming handlers."""
     _instance = None  # Ensure only one instance of Logger per app
-    def __new__(cls):
+    def __new__(cls, console_height):
         if cls._instance is None:
             cls._instance = super(Logger, cls).__new__(cls)
             cls._instance._initialized = False
         return cls._instance
 
-    def __init__(self):
+    def __init__(self, console_height):
         if self._initialized:
             return
         self._initialized = True
 
         self.logger = logging.getLogger("HYDRA_logger")
-        self.logger.setLevel(logging.DEBUG)
+        self.logger.setLevel(logging.DEBUG)  # Keep as Debug. Console will always need to show debug messages.
 
         # Ensure log directory exists
         try:
@@ -33,16 +33,17 @@ class Logger:
         def format_time(record, datefmt=None):
             dt = datetime.fromtimestamp(record.created, ZoneInfo("America/New_York"))
             return dt.strftime("%Y-%m-%d %H:%M:%S")
-
-        self.formatter = logging.Formatter(fmt='%(asctime)s - %(levelname)s - %(message)s')
-        self.formatter.formatTime = format_time
-        self.console_messages = ['','','','','','','']
+        try:
+            self.formatter = logging.Formatter(fmt='%(asctime)s - %(filename)s:%(lineno)d - %(levelname)s - %(message)s')
+            self.formatter.formatTime = format_time
+        except Exception as e:
+            self.print_and_exit(f"Couldn't set formatter: {e}")
 
         # Setup Handlers
         self.file_handler = self.setup_file_handler()
         self.email_handler = self.setup_email_handler()
         self.trade_handler = self.setup_trade_handler()
-        self.console_handler = self.setup_console_handler()
+        self.console_handler = self.setup_console_handler(console_height)
 
         # Add Handlers to Logger
         try:
@@ -52,8 +53,6 @@ class Logger:
             self.logger.addHandler(self.console_handler)
         except Exception as e:
             self.print_and_exit(f"Failed to add handlers to logger: {e}")
-
-        #self.logger.debug("Logger setup complete.")
 
     def setup_file_handler(self):
         """Sets up the FileHandler for system logs with a custom emit method."""
@@ -135,16 +134,17 @@ class Logger:
         except Exception as e:
             self.print_and_exit(f"Failed to emit trade message: {e}")
 
-    def setup_console_handler(self):
+    def setup_console_handler(self, console_height):
         """Sets up the ConsoleHandler to capture log messages for TUI with a custom emit method."""
+        self.console_height = console_height
+        self.console_messages = [""] * console_height
         try:
             console_handler = logging.StreamHandler()
             console_handler.setLevel(logging.DEBUG)
             console_handler.setFormatter(self.formatter)
-            self.original_streamhandler_emit = console_handler.emit
+            #self.original_streamhandler_emit = console_handler.emit
             def emit(record):
                 self.console_handler_emit(record)
-            #console_handler.emit = lambda record: self.console_handler_emit(record)
             console_handler.emit = emit
             return console_handler
         except Exception as e:
@@ -154,10 +154,10 @@ class Logger:
         """Custom emit method for console_handler to capture log messages for TUI."""
         try:
             log_entry = self.formatter.format(record)
-            self.console_messages.append(log_entry)
-            if len(self.console_messages) > 7:
+            if len(self.console_messages) > self.console_height:
                 self.console_messages.pop(0)
-            self.original_streamhandler_emit(record)
+            #self.original_streamhandler_emit(record)
+            self.console_messages.append(log_entry)
         except Exception as e:
             self.print_and_exit(f"Failed to capture log message: {e}")
 
@@ -175,4 +175,3 @@ class Logger:
         logging.basicConfig(level=logging.ERROR)
         logging.error(message)
         sys.exit(1)
-
