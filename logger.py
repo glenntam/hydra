@@ -137,7 +137,7 @@ class Logger:
     def setup_console_handler(self, console_height):
         """Sets up the ConsoleHandler to capture log messages for TUI with a custom emit method."""
         self.console_height = console_height
-        self.console_messages = [""] * console_height
+        self.console_messages = []
         try:
             console_handler = logging.StreamHandler()
             console_handler.setLevel(logging.DEBUG)

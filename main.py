@@ -17,7 +17,7 @@ class TUI:
         self.logger_instance = Logger(console_height=self.console_height)
         self.log = self.logger_instance.logger
         self.console_messages = []
-        sys.stderr = open(os.devnull, 'w')  # supress printing errors, just log them
+        #sys.stderr = open(os.devnull, 'w')  # supress printing errors, just log them
 
         # IB
         self.ib = IB()
@@ -30,9 +30,10 @@ class TUI:
         self.top_text = urwid.AttrMap(urwid.Text("", wrap='clip'), None, 'focus')
         self.top = urwid.LineBox(self.top_text)
 
-        self.middle_left_text = urwid.AttrMap(urwid.Text("ML", wrap='clip'), None, 'focus')
         self.middle_left_input = urwid.AttrMap(urwid.Edit("Input: ", wrap='clip'), None, 'focus')
-        self.middle_left_pile = urwid.Pile([self.middle_left_text, self.middle_left_input])
+        self.middle_left_text = urwid.AttrMap(urwid.Text("ML", wrap='clip'), None, 'focus')
+        self.middle_left_ticker = urwid.AttrMap(urwid.Text("ML", wrap='clip'), None, 'focus')
+        self.middle_left_pile = urwid.Pile([self.middle_left_input, self.middle_left_text, self.middle_left_ticker])
         self.middle_left = urwid.LineBox(self.middle_left_pile)
 
         self.middle_right_text = urwid.AttrMap(urwid.Text("MR", wrap='clip'), None, 'focus')
@@ -53,6 +54,7 @@ class TUI:
             ('focus', 'black', 'dark red', 'standout'),  # Highlighted widget when focused
         ]
         self.focused_widget = None
+        self.paused = False
 
         # Setup Event Loops
         self.ib_loop = util.getLoop()  # ib_async's built-in asyncio event loop
@@ -73,12 +75,19 @@ class TUI:
             input_text = self.middle_left_input.base_widget.get_edit_text()
             self.middle_left_text.base_widget.set_text(input_text)
             if key.lower() == "q":
-                self.log.debug("Disconnecting...")
+                self.log.info("Disconnecting IB(). HYDRA stopped.")
                 self.ib.disconnect()
                 raise urwid.ExitMainLoop()
+            elif key.lower() == "p":
+                if self.paused:
+                    self.paused = False
+                    self.log.debug("Refresh unpaused")
+                    self.loop.set_alarm_in(0, self.refresh_display)
+                else:
+                    self.log.debug("Refresh paused")
+                    self.paused = True
 
     def refresh_display(self, loop, user_data=None):
-
         self.console_messages = self.logger_instance.get_console_messages()
         self.bottom_text.base_widget.set_text("\n".join(self.console_messages))
 
@@ -97,7 +106,9 @@ class TUI:
         except Exception as e:
             self.log.error(f"Error updating time: {e}")
             self.top_text.base_widget.set_text("Error retrieving time.")
-        loop.set_alarm_in(0.2, self.refresh_display)
+        if not self.paused:
+            loop.set_alarm_in(0.2, self.refresh_display)
+        self.loop.draw_screen()
 
 
 if __name__ == "__main__":
