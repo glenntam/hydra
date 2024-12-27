@@ -24,7 +24,7 @@ class TUI:
         self.ib.connect('127.0.0.1', 7497, clientId=0)
         self.log.info("HYDRA started. Connected to IB().")
         self.ib.errorEvent += self.logger_instance.OnIBErrorEvent  # catch IB TWS errors
-        self.selected_contract = None
+        self.ib.pendingTickersEvent += self.onPendingTickByTick
 
         # UI
         self.top_text = urwid.AttrMap(urwid.Text("", wrap='clip'), None, 'focus')
@@ -32,8 +32,8 @@ class TUI:
 
         self.middle_left_input = urwid.AttrMap(urwid.Edit("Input: ", wrap='clip'), None, 'focus')
         self.middle_left_text = urwid.AttrMap(urwid.Text("ML", wrap='clip'), None, 'focus')
-        self.middle_left_ticker = urwid.AttrMap(urwid.Text("ML", wrap='clip'), None, 'focus')
-        self.middle_left_pile = urwid.Pile([self.middle_left_input, self.middle_left_text, self.middle_left_ticker])
+        #self.middle_left_ticker = urwid.AttrMap(urwid.Text("ML", wrap='space'), None, 'focus')
+        self.middle_left_pile = urwid.Pile([self.middle_left_input, self.middle_left_text])
         self.middle_left = urwid.LineBox(self.middle_left_pile)
 
         self.middle_right_text = urwid.AttrMap(urwid.Text("MR", wrap='clip'), None, 'focus')
@@ -53,7 +53,7 @@ class TUI:
             ('normal', 'white', 'black'),   # Default text colour
             ('focus', 'black', 'dark red', 'standout'),  # Highlighted widget when focused
         ]
-        self.focused_widget = None
+        #self.focused_widget = None
         self.paused = False
 
         # Setup Event Loops
@@ -70,12 +70,27 @@ class TUI:
         self.loop.set_alarm_in(0, self.refresh_display)
         self.loop.run()
 
+    def onPendingTickByTick(self, ticker):
+        try:
+            t = f"[{self.ticker.contract.symbol}] {self.ticker.tickByTicks[0].price:.2f}  x  {self.ticker.tickByTicks[0].size}"
+            self.middle_left_text.base_widget.set_text(t)
+        except:
+            pass
+
     def handle_input(self, key):
         if isinstance(key, str):
             input_text = self.middle_left_input.base_widget.get_edit_text()
-            self.middle_left_text.base_widget.set_text(input_text)
+            if True:  # FIXME: only when edit widget is focused
+                if key == "enter":
+                    contract_input = self.middle_left_input.base_widget.get_edit_text().upper()
+                    if contract_input in ['ES', 'NQ', 'RTY', 'MES', 'MNQ', 'M2K']:
+                        con = contract.ContFuture(symbol=contract_input, exchange='CME')
+                        self.contract = self.ib.qualifyContracts(con)[0]
+                        self.ticker = self.ib.reqTickByTickData(self.contract, 'Last')
             if key.lower() == "q":
-                self.log.info("Disconnecting IB(). HYDRA stopped.")
+                self.log.info("Disconnecting IB(). HYDRA stopping.")
+                self.ib.cancelTickByTickData(self.ticker.contract, 'Last')
+                self.ib.sleep(2)
                 self.ib.disconnect()
                 raise urwid.ExitMainLoop()
             elif key.lower() == "p":
