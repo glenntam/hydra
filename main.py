@@ -3,6 +3,7 @@ import sys
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+import talib
 import urwid
 from dotenv import load_dotenv
 from ib_async import IB, contract, util
@@ -25,20 +26,27 @@ class TUI:
         self.log.info("HYDRA started. Connected to IB().")
         self.ib.errorEvent += self.logger_instance.OnIBErrorEvent  # catch IB TWS errors
         self.ib.pendingTickersEvent += self.onPendingTickByTick
+        #self.ib.barUpdateEvent += self.onPendingBars
+        #self.bars.UpdateEvent += self.onPendingBars
 
         # UI
         self.top_text = urwid.AttrMap(urwid.Text("", wrap='clip'), None, 'focus')
         self.top = urwid.LineBox(self.top_text)
 
         self.middle_left_input = urwid.AttrMap(urwid.Edit("Input: ", wrap='clip'), None, 'focus')
-        self.middle_left_text = urwid.AttrMap(urwid.Text("ML", wrap='clip'), None, 'focus')
-        #self.middle_left_ticker = urwid.AttrMap(urwid.Text("ML", wrap='space'), None, 'focus')
-        self.middle_left_pile = urwid.Pile([self.middle_left_input, self.middle_left_text])
+        self.middle_left_ticker = urwid.AttrMap(urwid.Text("ML", wrap='clip'), None, 'focus')
+        self.middle_left_df = urwid.AttrMap(urwid.Text("ML", wrap='space'), None, 'focus')
+        self.middle_left_pile = urwid.Pile([self.middle_left_input, self.middle_left_ticker, self.middle_left_df])
         self.middle_left = urwid.LineBox(self.middle_left_pile)
 
         self.middle_right_text = urwid.AttrMap(urwid.Text("MR", wrap='clip'), None, 'focus')
         self.middle_right = urwid.LineBox(self.middle_right_text)
-        self.middle = urwid.Filler(urwid.Columns([self.middle_left, self.middle_right]), valign="top")
+
+        self.middle = urwid.Filler(urwid.Columns([
+                                                    ('weight', 2, self.middle_left),
+                                                    ('weight', 1, self.middle_right)
+                                                ]),
+                                    valign="top")
 
         self.bottom_text = urwid.AttrMap(urwid.Text("", wrap='clip'), None, 'focus')
         self.bottom = urwid.LineBox(urwid.ListBox(urwid.SimpleListWalker([self.bottom_text])))
@@ -73,9 +81,19 @@ class TUI:
     def onPendingTickByTick(self, ticker):
         try:
             t = f"[{self.ticker.contract.symbol}] {self.ticker.tickByTicks[0].price:.2f}  x  {self.ticker.tickByTicks[0].size}"
-            self.middle_left_text.base_widget.set_text(t)
+            self.middle_left_ticker.base_widget.set_text(t)
         except:
             pass
+
+    def onPendingBars(self, bars, hasNewBar):
+        df = util.df(bars)
+        df['date'] = df['date'].dt.tz_convert("America/New_York")
+        df['average'] = df['average'].round(2)
+        df['close'] = df['close'].round(3)
+        df['MACD-green'] = talib.EMA(df['close'], timeperiod=12) - talib.EMA(df['close'], timeperiod=26).round(6)
+        df['MACD-EMA-9-red'] = talib.EMA(df['MACD-green'], timeperiod=9).round(6)
+        dftail = df.tail(8)
+        self.middle_left_df.base_widget.set_text(str(dftail))
 
     def handle_input(self, key):
         if isinstance(key, str):
@@ -87,9 +105,25 @@ class TUI:
                         con = contract.ContFuture(symbol=contract_input, exchange='CME')
                         self.contract = self.ib.qualifyContracts(con)[0]
                         self.ticker = self.ib.reqTickByTickData(self.contract, 'Last')
+                        self.bars = self.ib.reqHistoricalData(
+                                self.contract,
+                                endDateTime='',
+                                durationStr='49500 S',
+                                barSizeSetting='5 mins',
+                                whatToShow='TRADES',
+                                useRTH=False,
+                                formatDate=2,  # 1 for tws local tz, 2 for UTC
+                                keepUpToDate=True)
+                        self.bars.updateEvent += self.onPendingBars
+                        #self.middle_left_df.base_widget.set_text(str(util.df(self.bars)))
+
+
             if key.lower() == "q":
                 self.log.info("Disconnecting IB(). HYDRA stopping.")
                 self.ib.cancelTickByTickData(self.ticker.contract, 'Last')
+                self.bars.updateEvent -= self.onPendingBars
+                #self.ib.cancelHistoricalData(self.bars)
+
                 self.ib.sleep(2)
                 self.ib.disconnect()
                 raise urwid.ExitMainLoop()
