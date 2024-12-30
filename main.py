@@ -31,11 +31,25 @@ class TUI:
 
         # UI
         self.top_text = urwid.AttrMap(urwid.Text("", wrap='clip'), None, 'focus')
-        self.top = urwid.LineBox(self.top_text)
+
+        self.dropdown = ['manual', '1', '2']
+        self.dropdown_btns = []
+        self.selected = [self.dropdown[0]]
+        for i in self.dropdown:
+            btn = urwid.Button(i)
+            def on_click(_button, choice=i):
+                self.selected[0] = choice
+                self.log.debug(f"Selected: {self.selected[0]}")
+            urwid.connect_signal(btn, 'click', on_click)
+            self.dropdown_btns.append(btn)
+
+        self.top_dropdown = urwid.ListBox(urwid.SimpleFocusListWalker(self.dropdown_btns))
+
+        self.top = urwid.LineBox(urwid.Filler(urwid.Columns([('weight', 1, self.top_text), ('weight', 1, self.top_dropdown)], box_columns=[1])))
 
         self.middle_left_input = urwid.AttrMap(urwid.Edit("Input: ", wrap='clip'), None, 'focus')
         self.middle_left_ticker = urwid.AttrMap(urwid.Text("ML", wrap='clip'), None, 'focus')
-        self.middle_left_df = urwid.AttrMap(urwid.Text("ML", wrap='space'), None, 'focus')
+        self.middle_left_df = urwid.AttrMap(urwid.Text("ML", wrap='clip'), None, 'focus')
         self.middle_left_pile = urwid.Pile([self.middle_left_input, self.middle_left_ticker, self.middle_left_df])
         self.middle_left = urwid.LineBox(self.middle_left_pile)
 
