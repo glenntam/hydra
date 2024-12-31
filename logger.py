@@ -5,6 +5,8 @@ from datetime import datetime
 from logging.handlers import SMTPHandler
 from zoneinfo import ZoneInfo
 
+from dotenv import load_dotenv
+
 
 class Logger:
     """Custom HYDRA logger with: system, email, trade, and streaming handlers."""
@@ -178,3 +180,8 @@ class Logger:
         logging.basicConfig(level=logging.ERROR)
         logging.error(message)
         sys.exit(1)
+
+
+load_dotenv()
+logger = Logger(console_height=7)
+log = logger.logger
