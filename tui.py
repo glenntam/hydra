@@ -1,11 +1,7 @@
-import os
-from datetime import datetime
-from zoneinfo import ZoneInfo
-
-import talib
 import urwid
-from ib_async import IB, contract, util
 
+from bots import Bot
+from ib_async import util
 from logger import logger, log
 
 
@@ -13,13 +9,10 @@ class TUI:
     def __init__(self):
         self.paused = False
         self.console_messages = []
+        self.bots = []
 
-        # IB
-        self.ib = IB()
-        self.ib.connect('127.0.0.1', 7498, clientId=0)
-        log.info("HYDRA started. Connected to IB().")
-        self.ib.errorEvent += logger.OnIBErrorEvent  # catch IB TWS errors
-        self.ib.pendingTickersEvent += self.onPendingTickByTick
+        log.info("HYDRA started.")
+        #self.initialize_bots()
 
         # UI
         self.palette = [
@@ -79,26 +72,37 @@ class TUI:
             event_loop=self.my_asyncio_loop
         )
 
+        self.initialize_bots()
         # Schedule the first refresh immediately
         self.loop.set_alarm_in(0, self.refresh_display)
         self.loop.run()
 
-    def onPendingTickByTick(self, ticker):
-        try:
-            t = f"[{self.ticker.contract.symbol}] {self.ticker.tickByTicks[0].price:.2f}  x  {self.ticker.tickByTicks[0].size}"
-            self.middle_left_ticker.base_widget.set_text(t)
-        except:
-            pass
+    def initialize_bots(self):
+        self.bots = {
+                0: Bot('master', self.bot_callback, client_id=0),
+                1: Bot('ss_live', self.bot_callback, client_id=1),
+        }
+        for bot in self.bots:
+            self.bots[bot].connect()
 
-    def onPendingBars(self, bars, hasNewBar):
-        df = util.df(bars)
-        df['date'] = df['date'].dt.tz_convert("America/New_York")
-        df['average'] = df['average'].round(2)
-        df['close'] = df['close'].round(3)
-        df['MACD-green'] = talib.EMA(df['close'], timeperiod=12) - talib.EMA(df['close'], timeperiod=26).round(6)
-        df['MACD-EMA-9-red'] = talib.EMA(df['MACD-green'], timeperiod=9).round(6)
-        dftail = df.tail(8)
-        self.middle_left_df.base_widget.set_text(str(dftail))
+
+    def bot_callback(self, client_id, widget, s):
+        if widget == 'time':
+            try:
+                self.top_text.base_widget.set_text(s)
+            except:
+                log.error(f"Error updating time: {e}")
+                self.top_text.base_widget.set_text("Error retrieving time.")
+        if widget == 'ticker':
+            try:
+                self.middle_left_ticker.base_widget_set_text(s)
+            except:
+                pass
+        if widget == 'bars':
+            try:
+                self.middle_left_df.base_widget.set_text(s)
+            except:
+                pass
 
     def handle_input(self, key):
         if isinstance(key, str):
@@ -106,36 +110,16 @@ class TUI:
             if True:  # FIXME: only when edit widget is focused
                 if key == "enter":
                     contract_input = self.middle_left_input.base_widget.get_edit_text().upper()
-                    if contract_input in ['ES', 'NQ', 'RTY', 'MES', 'MNQ', 'M2K']:
-                        con = contract.ContFuture(symbol=contract_input, exchange='CME')
-                        self.contract = self.ib.qualifyContracts(con)[0]
-                        self.ticker = self.ib.reqTickByTickData(self.contract, 'Last')
-                        self.bars = self.ib.reqHistoricalData(
-                                self.contract,
-                                endDateTime='',
-                                durationStr='49500 S',
-                                barSizeSetting='5 mins',
-                                whatToShow='TRADES',
-                                useRTH=False,
-                                formatDate=2,  # 1 for tws local tz, 2 for UTC
-                                keepUpToDate=True)
-                        self.bars.updateEvent += self.onPendingBars
-                        #self.middle_left_df.base_widget.set_text(str(util.df(self.bars)))
+    
+                    contract_obj = self.current_bot.qualify(contract_input)
+                    self.current_bot.start_ticker(contract_obj)
+                    self.current_bot.start_bars(contract_obj)
 
 
             if key.lower() == "q":
-                log.info("Disconnecting IB(). HYDRA stopping.")
-                try:
-                    self.ib.cancelTickByTickData(self.ticker.contract, 'Last')
-                except:
-                    pass
-                try:
-                    self.bars.updateEvent -= self.onPendingBars
-                    self.ib.cancelHistoricalData(self.bars)
-                except:
-                    pass
-                self.ib.sleep(2)
-                self.ib.disconnect()
+                for bot in bots:
+                    bot.disconnect()
+                log.info("All bots stopped. HYDRA stopping.")
                 raise urwid.ExitMainLoop()
             elif key.lower() == "p":
                 if self.paused:
@@ -157,14 +141,8 @@ class TUI:
         #ticker = self.ib.ticker(c)
         #self.ib.sleep(0.5)
         #ticker
-        try:
-            ib_time_obj = self.ib.reqCurrentTime()
-            ib_time = str(ib_time_obj.now(ZoneInfo("America/New_York"))) + "  (New York)"
-            self.top_text.base_widget.set_text(ib_time)
-            #log.debug(f"Time updated: {ib_time}")
-        except Exception as e:
-            log.error(f"Error updating time: {e}")
-            self.top_text.base_widget.set_text("Error retrieving time.")
+        self.bots[0].display_time()
+
         if not self.paused:
             loop.set_alarm_in(0.1, self.refresh_display)
         self.loop.draw_screen()

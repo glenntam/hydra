@@ -1,3 +1,4 @@
+import os
 import sys
 from ib_async import util
 from logger import log
