@@ -22,15 +22,10 @@ class Bot:
         self.ib.errorEvent += logger.OnIBErrorEvent  # catch IB TWS errors
 
     def disconnect(self):
-        try:
-            self.ib.cancelTickByTickData(self.ticker.contract, 'Last')
-        except:
-            pass
-        try:
-            self.bars.updateEvent -= self.onPendingBars
-            self.ib.cancelHistoricalData(self.bars)
-        except:
-            pass
+        log.debug("STOPPING")
+        self.ib.cancelTickByTickData(self.ticker.contract, 'Last')
+        self.bars.updateEvent -= self.onPendingBars
+        self.ib.cancelHistoricalData(self.bars)
         self.ib.sleep(2)
         self.ib.disconnect()
         log.debug(f"{self.codename} disconnected")
@@ -47,7 +42,7 @@ class Bot:
             return contract_obj
 
     def start_ticker(self, qualified_contract):
-        self.ticker = self.ib.reqTickByTickData(qualified_contract)
+        self.ticker = self.ib.reqTickByTickData(qualified_contract, 'Last')
         self.ib.pendingTickersEvent += self.onPendingTickByTick
 
     def onPendingTickByTick(self, ticker):
