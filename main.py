@@ -10,14 +10,18 @@ from tui import TUI
 
 class EventManager:
     def __init__(self):
-        self._subscribers = defaultdict(list)
+        self.subscribers = defaultdict(list)
 
     def subscribe(self, event_name, callback):
-        self._subscribers[event_name].append(callback)
+        self.subscribers[event_name].append(callback)
 
-    def publish(self, event_name, **kwargs):
-        for callback in self._subscribers[event_name]:
-            callback(**kwargs)
+    def publish(self, event_name, callback):
+        for each_event in self.subscribers[event_name]:
+            each_event(callback)
+
+    def unsubscribe(self, event_name, callback):
+        if callback in self.subscribers[event_name]:
+            self.subscribers[event_name].remove(callback)
 
 
 class Trade:
@@ -37,7 +41,7 @@ class Hydra:
 
         self.event_manager = EventManager()
         self.event_manager.subscribe('execute_trade', self.execute_trade)
-        self.event_manager.publish('on_pending_tickers', callback=self.on_pending_tickers)
+        self.event_manager.publish('on_pending_tickers', self.on_pending_tickers)
 
         self.tui = TUI()
 
@@ -65,7 +69,7 @@ class Hydra:
             pass
         trade = self.ib.placeOrder(self.contracts[contract], order)
 
-    def on_pending_tickers(self):
+    def on_pending_tickers(self, _):
         # send to bot and TUI
         self.event_manager.publish('on_pending_tickers', self.tickers)
 
@@ -95,7 +99,7 @@ class Hydra:
             self.tickers[c] = self.ib.reqMktData(self.contracts[c], '', False, False)
 
         print(self.tickers)
-        self.ib.pendingTickersEvent += self.on_pending_tickers()
+        self.ib.pendingTickersEvent += self.on_pending_tickers
 
     def initialize__bots(self):
         self.bots = {

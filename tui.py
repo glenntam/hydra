@@ -126,7 +126,7 @@ class TUI:
         #c = self.ib.qualifyContracts(con)[0]
         #self.ib.reqMktData(c, genericTickList='', snapshot=False, regulatorySnapshot=False)
         #ticker = self.ib.ticker(c)
-        #self.ib.sleep(0.5)
+        self.ib.sleep(200.5)
         #ticker
         self.bots[0].display_time()
 
