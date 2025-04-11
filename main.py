@@ -2,8 +2,9 @@ import os
 import sys
 from collections import defaultdict
 
-from ib_async import IB, Contract, util
-from logger import log
+from dotenv import load_dotenv; load_dotenv()
+from ib_async import IB, Contract, Future, util
+from logger import logger, log
 from tui import TUI
 
 
@@ -18,11 +19,14 @@ class EventManager:
         for callback in self._subscribers[event_name]:
             callback(**kwargs)
 
+
 class Trade:
     def __init__(self):
         self.bot_id
         self.datatime
         self.status
+
+
 class Hydra:
     def __init__(self):
         log.info("Starting HYDRA")
@@ -33,8 +37,9 @@ class Hydra:
 
         self.event_manager = EventManager()
         self.event_manager.subscribe('execute_trade', self.execute_trade)
-        self.event_manager.publish('on_pending_tickers', self.on_pending_tickers)
-        self.tui = TUI(self)
+        self.event_manager.publish('on_pending_tickers', callback=self.on_pending_tickers)
+
+        self.tui = TUI()
 
         self.ib = IB()
         self.contracts = {}
@@ -46,15 +51,15 @@ class Hydra:
         #execute trade on ib.
         #pass confirmation to bot (and save to db)
         #convey to TUI?
-        if order_type = 'LMT':
-            if action = 'BUY':
+        if order_type == 'LMT':
+            if action == 'BUY':
                 order = LimitOrder('BUY', amt, price)
-            elif action = 'SELL':
+            elif action == 'SELL':
                 order = LimitOrder('SELL', amt, price)
-        elif order_type = 'MKT':
-            if action = 'BUY':
+        elif order_type == 'MKT':
+            if action == 'BUY':
                 order = MarketOrder('BUY', amt)
-            elif action = 'SELL':
+            elif action == 'SELL':
                 order = MarketOrder('SELL', amt)
         else:
             pass
@@ -62,29 +67,35 @@ class Hydra:
 
     def on_pending_tickers(self):
         # send to bot and TUI
-        self.event_manager.publish('on_pending_tickers',
-                                   self.tickers)
+        self.event_manager.publish('on_pending_tickers', self.tickers)
 
 
     def start(self):
-        self.ib.connect('127.0.0.1', 7498, clientId=0)
+        self.ib.connect(os.getenv('IB_HOST'), os.getenv("IB_PORT"), clientId=0)
+        #self.ib.connect('127.0.0.1', 7498, clientId=0)
         self.ib.errorEvent += logger.OnIBErrorEvent  # Catch IB TWS errors
         self.qualify_contracts()
         self.start_tickers()
-        self.initialize_bots()
+        self.tui.initialize_bots()
         self.tui.start()
 
     def qualify_contracts(self):
         # Populate manually for now
-        self.contracts = {'MNQ': self.ib.qualifyContracts(contract.ContFuture(symbol='MNQ', exchange='CME'))[0],
-                          'MES': self.ib.qualifyContracts(contract.ContFuture(symbol='MES', exchange='CME'))[0],
+
+        mes = Future('MES', '20250620')
+        mnq = Future('MNQ', '20250620')
+
+        self.contracts = {'MNQ': self.ib.qualifyContracts(mnq)[0],
+                          'MES': self.ib.qualifyContracts(mes)[0],
         }
 
     def start_tickers(self):
         """Ensure self.contracts is all qualified, first."""
         for c in self.contracts:
-            self.tickers[c] = ib.reqMktData(self.contracts[c], '', False, False)
-        self.ib.pendingTickersEvent += self.on_pending_tickers
+            self.tickers[c] = self.ib.reqMktData(self.contracts[c], '', False, False)
+
+        print(self.tickers)
+        self.ib.pendingTickersEvent += self.on_pending_tickers()
 
     def initialize__bots(self):
         self.bots = {
@@ -140,4 +151,3 @@ class Hydra:
 if __name__ == "__main__":
     app = Hydra()
     app.start()
-

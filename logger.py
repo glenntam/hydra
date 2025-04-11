@@ -5,7 +5,8 @@ from datetime import datetime
 from logging.handlers import SMTPHandler
 from zoneinfo import ZoneInfo
 
-from dotenv import load_dotenv
+#import config
+#from dotenv import load_dotenv
 
 
 class Logger:
@@ -182,6 +183,6 @@ class Logger:
         sys.exit(1)
 
 
-load_dotenv()
+#load_dotenv()
 logger = Logger(console_height=7)
 log = logger.logger

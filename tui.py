@@ -34,7 +34,6 @@ class TUI:
             event_loop=self.my_asyncio_loop
         )
 
-
         # Schedule the first refresh immediately
         self.loop.set_alarm_in(0, self.refresh_display)
         self.loop.run()
@@ -142,7 +141,7 @@ class TUI:
             if True:  # FIXME: only when edit widget is focused
                 if key == "enter":
                     contract_input = self.middle_left_input.base_widget.get_edit_text().upper()
-    
+
                     contract_obj = self.bots[self.current_bot].qualify(contract_input)
                     self.bots[self.current_bot].start_ticker(contract_obj)
                     self.bots[self.current_bot].start_bars(contract_obj)

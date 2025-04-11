@@ -1,3 +1,4 @@
+import os
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -8,8 +9,7 @@ from ib_async import IB, contract, util
 
 
 class Bot:
-
-    def __init__(self, codename, report_to_tui, ip='127.0.0.1', port=7498, client_id=0):
+    def __init__(self, codename, report_to_tui, ip=os.getenv('IB_HOST'), port=os.getenv('IB_PORT'), client_id=0):
         self.codename = codename
         self.callback = report_to_tui
         self.ip = ip
